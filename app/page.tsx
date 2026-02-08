@@ -10,7 +10,7 @@ import { ensureInitialized, subscribeParts, PartState } from "../lib/store";
 import { PARTS } from "../lib/parts";
 
 export default function HomePage() {
-  const { name, setName } = useUserName();
+  const { name, setName, ready: nameReady} = useUserName();
   const [stateMap, setStateMap] = useState<Record<string, PartState>>({});
   const [ready, setReady] = useState(false);
 
@@ -44,7 +44,7 @@ export default function HomePage() {
         <div className="text-neutral-300">יוסף & הודיה</div>
       </div>
 
-      <UserNameCard name={name} setName={setName} />
+      <UserNameCard name={name} setName={setName} ready={nameReady} />
 
       <PieProgress available={counts.available} reading={counts.reading} done={counts.done} />
 
@@ -54,15 +54,11 @@ export default function HomePage() {
         </div>
       )}
 
-      <div className={name ? "" : "opacity-60 pointer-events-none"}>
+      <div className={!nameReady? "opacity-60" : !name ? "opacity-60 pointer-events-none": ""}>
         <PartsList stateMap={stateMap} />
       </div>
 
       <ResetButton />
-
-      <div className="pt-2 text-center text-xs text-neutral-500">
-        טיפ: אם מישהו "נתקע" על כתום, אחרי ~12 דקות זה משתחרר אוטומטית.
-      </div>
     </main>
   );
 }

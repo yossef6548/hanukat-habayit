@@ -11,20 +11,24 @@ export default function PartPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const router = useRouter();
-  const { name } = useUserName();
+  const { name, ready: nameReady } = useUserName();
   const part = useMemo(() => PARTS.find(p => p.id === id), [id]);
   const [state, setState] = useState<PartState | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!nameReady) return;
     if (!name) {
       alert("כדי לבחור קטע צריך קודם להגדיר שם.");
       router.replace("/");
       return;
     }
-  }, [name, router]);
+  }, [name, nameReady, router]);
 
   useEffect(() => {
+    if (!part) return;
+    if (!name) return;
+    if (!nameReady) return;
     let unsub: any = null;
     (async () => {
       await ensureInitialized();
@@ -33,7 +37,7 @@ export default function PartPage() {
       });
 
       try {
-        await tryTakePart(id, name || "אורח");
+        await tryTakePart(id, name);
       } catch (e: any) {
         alert(e?.message ?? "לא הצלחתי לבחור את החלק");
         router.replace("/");
@@ -54,7 +58,7 @@ export default function PartPage() {
       window.removeEventListener("beforeunload", onUnload);
       unsub?.();
     };
-  }, [id, name, router]);
+  }, [id, name, nameReady, router]);
 
   if (!part) {
     return (
@@ -66,12 +70,6 @@ export default function PartPage() {
 
   return (
     <main className="space-y-4">
-      <button
-        onClick={() => router.push("/")}
-        className="w-full rounded-2xl bg-neutral-800 px-4 py-3 text-base font-semibold active:scale-[0.99]"
-      >
-        ← חזרה לרשימה
-      </button>
 
       <div className="rounded-2xl bg-neutral-900 p-4 shadow">
         <div className="mb-2 flex items-center justify-between">

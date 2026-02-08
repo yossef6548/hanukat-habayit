@@ -4,23 +4,25 @@
 import { useEffect, useState } from "react";
 
 export function useUserName() {
-  const [name, setName] = useState<string>("");
+  const [name, setNameState] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem("readerName");
-    if (stored) setName(stored);
+    setNameState(stored ?? "");
   }, []);
 
-  useEffect(() => {
-    if (name) localStorage.setItem("readerName", name);
-  }, [name]);
+  const setName = (value: string) => {
+    const v = value.trim();
+    setNameState(v);
+    localStorage.setItem("readerName", v);
+  };
 
-  return { name, setName };
+  return { name, setName, ready: name !== null };
 }
 
-export function UserNameCard({ name, setName }: { name: string; setName: (v: string) => void }) {
+export function UserNameCard({ name, setName, ready }: { name: string | null; setName: (v: string) => void; ready: boolean }) {
   function ask() {
-    const v = window.prompt("מה השם שלך? (יופיע ליד 'בקריאה/נקרא')", name || "");
+    const v = window.prompt("מה השם שלך?", name || "");
     if (!v) return;
     setName(v.trim());
   }
@@ -30,14 +32,16 @@ export function UserNameCard({ name, setName }: { name: string; setName: (v: str
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="text-sm text-neutral-300">שם משתתף</div>
-          <div className="text-lg font-semibold">{name || "לא הוגדר"}</div>
+          <div className="text-lg font-semibold">{ready ? name || "לא הוגדר" : "טוען..."}</div>
         </div>
-        <button
-          onClick={ask}
-          className="rounded-2xl bg-neutral-800 px-4 py-3 text-sm font-semibold active:scale-[0.99]"
-        >
-          עריכה
-        </button>
+        {name && ( 
+          <button
+            onClick={ask}
+            className="rounded-2xl bg-neutral-800 px-4 py-3 text-sm font-semibold active:scale-[0.99]"
+          >
+            עריכה
+          </button>
+        )}
       </div>
       {!name && (
         <button
