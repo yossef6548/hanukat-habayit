@@ -8,7 +8,7 @@ export function ResetButton() {
   const [loading, setLoading] = useState(false);
 
   async function onReset() {
-    const pwd = window.prompt("איפוס — הזן סיסמה כדי למנוע לחיצה בטעות:");
+    const pwd = window.prompt("איפוס — הזן סיסמה:");
     if (pwd == null) return;
     setLoading(true);
     try {

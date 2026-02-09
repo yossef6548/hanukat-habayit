@@ -35,6 +35,8 @@ export function PieProgress({
     maintainAspectRatio: false,
     plugins: {
       legend: {
+        rtl: true,
+        textDirection: "rtl",
         labels: { color: "#e5e5e5" },
       },
       tooltip: {
