@@ -37,7 +37,7 @@ function findNearestParagraphBreak(text: string, idx: number, window: number) {
   return null;
 }
 
-export function splitToParts(raw: string, opts: SplitOptions) {
+export function autoSplit(raw: string, opts: SplitOptions) {
   const text = raw
     .replace(/\r\n/g, "\n")
     .replace(/[ \t]+\n/g, "\n") // trim trailing spaces
@@ -73,6 +73,21 @@ export function splitToParts(raw: string, opts: SplitOptions) {
     if (chunk.length) parts.push(chunk);
     i = cut;
   }
+
+  return parts;
+}
+
+export function manualSplit(raw: string) {
+  const text = raw
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+\n/g, "\n") // trim trailing spaces before newline
+    .trim();
+
+  // Split on one-or-more blank lines (double newline, or double newline with spaces)
+  const parts = text
+    .split(/\n\s*\n+/)
+    .map(p => p.trim())
+    .filter(Boolean);
 
   return parts;
 }
