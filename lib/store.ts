@@ -7,12 +7,15 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   setDoc,
   writeBatch,
   onSnapshot,
   serverTimestamp,
   runTransaction,
   Timestamp,
+  query,
+  where,
 } from "firebase/firestore";
 
 export type PartStatus = "available" | "reading" | "done";
@@ -85,6 +88,15 @@ function isStaleReading(state?: PartState) {
 export async function tryTakePart(partId: string, readerName: string) {
   const ref = doc(partsCol, partId);
 
+  // prevent two active readers with the same name
+  const activeByName = await getDocs(
+    query(partsCol, where("status", "==", "reading"), where("readerName", "==", readerName))
+  );
+  const takenByOtherPart = activeByName.docs.some((d) => d.id !== partId);
+  if (takenByOtherPart) {
+    throw new Error("השם הזה כבר בשימוש כרגע. בחרו שם אחר.");
+  }
+
   await runTransaction(db, async (tx) => {
     const previousPartId = getPreviousPartId(partId);
     if (previousPartId) {
@@ -115,9 +127,12 @@ export async function tryTakePart(partId: string, readerName: string) {
 
     const snap2 = await tx.get(ref);
     const d2 = snap2.data() as any;
-    if (d2.status !== "available") {
+    const takenBySameReader = d2.status === "reading" && d2.readerName === readerName;
+    if (d2.status !== "available" && !takenBySameReader) {
       throw new Error("החלק כבר נבחר ע\"י מישהו אחר");
     }
+
+    if (takenBySameReader) return;
 
     tx.set(ref, {
       status: "reading",
