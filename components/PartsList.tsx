@@ -30,7 +30,7 @@ export function PartsList({
     <div className="mt-4 rounded-2xl bg-neutral-900 p-3 shadow">
       <div className="mb-2 text-lg font-semibold">בחירת קטע לקריאה</div>
 
-      <div className="max-h-[55vh] overflow-y-auto pr-1">
+      <div className="pr-1">
         <div className="space-y-2">
           {PARTS.map((p) => {
             const st = stateMap[p.id];
