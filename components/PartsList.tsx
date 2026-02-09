@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { Part, PARTS } from "../lib/parts";
+import { PARTS } from "../lib/parts";
 import { PartState } from "../lib/store";
 
 function classFor(state?: PartState) {
@@ -15,10 +15,18 @@ function classFor(state?: PartState) {
   return "bg-green-500 text-neutral-900";
 }
 
-function subText(state?: PartState) {
-  if (!state || state.status === "available") return "פנוי";
+function subText(state?: PartState, blocked?: boolean) {
+  if (!state || state.status === "available") {
+    return blocked ? "ממתין לחלק הקודם" : "פנוי";
+  }
   if (state.status === "reading") return `בקריאה: ${state.readerName ?? "מישהו"}`;
   return `נקרא: ${state.readerName ?? "מישהו"}`;
+}
+
+function isUnlocked(stateMap: Record<string, PartState>, index: number) {
+  if (index === 0) return true;
+  const prev = stateMap[PARTS[index - 1].id];
+  return prev?.status === "done";
 }
 
 export function PartsList({
@@ -32,9 +40,10 @@ export function PartsList({
 
       <div className="pr-1">
         <div className="space-y-2">
-          {PARTS.map((p) => {
+          {PARTS.map((p, index) => {
             const st = stateMap[p.id];
-            const selectable = !st || st.status === "available";
+            const unlocked = isUnlocked(stateMap, index);
+            const selectable = unlocked && (!st || st.status === "available");
 
             const card = (
               <div
@@ -45,7 +54,7 @@ export function PartsList({
               >
                 <div className="flex items-center justify-between">
                   <div className="text-base font-bold">{p.title}</div>
-                  <div className="text-xs font-semibold">{subText(st)}</div>
+                  <div className="text-xs font-semibold">{subText(st, !unlocked && (!st || st.status === "available"))}</div>
                 </div>
               </div>
             );

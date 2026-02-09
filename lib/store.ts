@@ -28,6 +28,13 @@ export type PartState = {
 const META_DOC = doc(db, "app", "meta");
 const partsCol = collection(db, "parts");
 
+function getPreviousPartId(partId: string): string | null {
+  const idx = PARTS.findIndex((p) => p.id === partId);
+  if (idx < 0) return null;
+  if (idx === 0) return null;
+  return PARTS[idx - 1].id;
+}
+
 export async function ensureInitialized() {
   const metaSnap = await getDoc(META_DOC);
   if (metaSnap.exists()) {
@@ -79,6 +86,17 @@ export async function tryTakePart(partId: string, readerName: string) {
   const ref = doc(partsCol, partId);
 
   await runTransaction(db, async (tx) => {
+    const previousPartId = getPreviousPartId(partId);
+    if (previousPartId) {
+      const prevRef = doc(partsCol, previousPartId);
+      const prevSnap = await tx.get(prevRef);
+      if (!prevSnap.exists()) throw new Error("החלק הקודם לא קיים");
+      const prevData = prevSnap.data() as any;
+      if (prevData.status !== "done") {
+        throw new Error("החלק הזה עדיין לא זמין. צריך לסיים קודם את החלק שלפניו.");
+      }
+    }
+
     const snap = await tx.get(ref);
     if (!snap.exists()) throw new Error("החלק לא קיים");
     const data = snap.data() as any;
