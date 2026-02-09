@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { PARTS } from "../../../lib/parts";
 import { cancelPart, ensureInitialized, markDone, subscribeParts, tryTakePart, PartState } from "../../../lib/store";
@@ -15,6 +15,20 @@ export default function PartPage() {
   const part = useMemo(() => PARTS.find(p => p.id === id), [id]);
   const [state, setState] = useState<PartState | null>(null);
   const [loading, setLoading] = useState(true);
+  const shouldReleaseRef = useRef(true);
+  const releaseInFlightRef = useRef(false);
+
+  const releasePart = useCallback(() => {
+    if (!name || !shouldReleaseRef.current || releaseInFlightRef.current) return;
+    releaseInFlightRef.current = true;
+    cancelPart(id, name)
+      .catch(() => {
+        // best effort cleanup
+      })
+      .finally(() => {
+        releaseInFlightRef.current = false;
+      });
+  }, [id, name]);
 
   useEffect(() => {
     if (!nameReady) return;
@@ -47,18 +61,26 @@ export default function PartPage() {
       }
     })();
 
-    // best-effort release on unload if still reading by me
-    const onUnload = () => {
-      try {
-        if (name) cancelPart(id, name);
-      } catch {}
+    // best-effort release if user leaves this page in any way
+    const onUnload = () => releasePart();
+    const onPageHide = () => releasePart();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        releasePart();
+      }
     };
+
     window.addEventListener("beforeunload", onUnload);
+    window.addEventListener("pagehide", onPageHide);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       window.removeEventListener("beforeunload", onUnload);
+      window.removeEventListener("pagehide", onPageHide);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      releasePart();
       unsub?.();
     };
-  }, [id, name, nameReady, router]);
+  }, [id, name, nameReady, part, releasePart, router]);
 
   if (!part) {
     return (
@@ -88,6 +110,7 @@ export default function PartPage() {
         <button
           onClick={async () => {
             if (!name) return;
+            shouldReleaseRef.current = false;
             await cancelPart(id, name);
             router.push("/");
           }}
@@ -98,6 +121,7 @@ export default function PartPage() {
         <button
           onClick={async () => {
             if (!name) return;
+            shouldReleaseRef.current = false;
             await markDone(id, name);
             router.push("/");
           }}
