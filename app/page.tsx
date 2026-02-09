@@ -39,11 +39,6 @@ export default function HomePage() {
 
   return (
     <main className="space-y-4">
-      <div className="text-center">
-        <div className="text-2xl font-extrabold">חנוכת הבית</div>
-        <div className="text-neutral-300">יוסף & הודיה</div>
-      </div>
-
       <UserNameCard name={name} setName={setName} ready={nameReady} />
 
       <PieProgress available={counts.available} reading={counts.reading} done={counts.done} />
