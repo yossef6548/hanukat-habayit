@@ -50,7 +50,7 @@ export default function HomePage() {
       )}
 
       <div className={!nameReady? "opacity-60" : !name ? "opacity-60 pointer-events-none": ""}>
-        <PartsList stateMap={stateMap} />
+        <PartsList stateMap={stateMap} currentUserName={name} />
       </div>
 
       <ResetButton />
