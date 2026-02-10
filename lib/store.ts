@@ -1,4 +1,3 @@
-
 "use client";
 
 import { db } from "./firebase";
@@ -27,6 +26,77 @@ export type PartState = {
 
 const META_DOC = doc(db, "app", "meta");
 const partsCol = collection(db, "parts");
+const readerNamesCol = collection(db, "readerNames");
+
+const STALE_MINUTES = 12;
+
+function normalizeReaderName(readerName: string): string {
+  return readerName.trim().toLocaleLowerCase().replace(/\s+/g, " ");
+}
+
+function readerNameRef(readerName: string) {
+  const key = normalizeReaderName(readerName).replace(/[./#$\[\]]/g, "_");
+  return doc(readerNamesCol, key);
+}
+
+export async function claimReaderName(readerName: string, clientId: string) {
+  const name = normalizeReaderName(readerName);
+  if (!name) throw new Error("צריך להזין שם תקין");
+
+  const ref = readerNameRef(name);
+
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+
+    if (snap.exists()) {
+      const d = snap.data() as any;
+      const ts: Timestamp | undefined = d?.updatedAt;
+      const owner = d?.clientId as string | undefined;
+
+      const stale = !!ts?.toDate && Date.now() - ts.toDate().getTime() > STALE_MINUTES * 60_000;
+      if (owner && owner !== clientId && !stale) {
+        throw new Error("השם הזה כבר בשימוש. בחרו שם אחר.");
+      }
+    }
+
+    tx.set(ref, {
+      displayName: readerName.trim(),
+      normalizedName: name,
+      clientId,
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+  });
+
+  return name;
+}
+
+export async function releaseReaderName(readerName: string, clientId: string) {
+  const name = normalizeReaderName(readerName);
+  if (!name) return;
+
+  const ref = readerNameRef(name);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) return;
+    const d = snap.data() as any;
+    if (d?.clientId === clientId) {
+      tx.delete(ref);
+    }
+  });
+}
+
+export async function touchReaderName(readerName: string, clientId: string) {
+  const name = normalizeReaderName(readerName);
+  if (!name) return;
+
+  const ref = readerNameRef(name);
+  await setDoc(ref, {
+    displayName: readerName.trim(),
+    normalizedName: name,
+    clientId,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+}
 
 function getPreviousPartId(partId: string): string | null {
   const idx = PARTS.findIndex((p) => p.id === partId);
@@ -44,14 +114,12 @@ export async function ensureInitialized() {
 
   const batch = writeBatch(db);
 
-  // meta
   batch.set(META_DOC, {
     textVersion: TEXT_VERSION,
     partsCount: PARTS.length,
     updatedAt: serverTimestamp(),
   });
 
-  // parts docs
   for (const p of PARTS) {
     batch.set(doc(partsCol, p.id), {
       status: "available",
@@ -71,8 +139,6 @@ export function subscribeParts(cb: (map: Record<string, PartState>) => void) {
     cb(map);
   });
 }
-
-const STALE_MINUTES = 12;
 
 function isStaleReading(state?: PartState) {
   if (!state || state.status !== "reading") return false;
@@ -103,7 +169,6 @@ export async function tryTakePart(partId: string, readerName: string) {
 
     const state: PartState = { id: partId, ...(data as any) };
 
-    // Auto-release stale reading
     if (isStaleReading(state)) {
       tx.set(ref, {
         status: "available",
@@ -115,9 +180,12 @@ export async function tryTakePart(partId: string, readerName: string) {
 
     const snap2 = await tx.get(ref);
     const d2 = snap2.data() as any;
-    if (d2.status !== "available") {
+    const takenBySameReader = d2.status === "reading" && d2.readerName === readerName;
+    if (d2.status !== "available" && !takenBySameReader) {
       throw new Error("החלק כבר נבחר ע\"י מישהו אחר");
     }
+
+    if (takenBySameReader) return;
 
     tx.set(ref, {
       status: "reading",
@@ -134,7 +202,6 @@ export async function cancelPart(partId: string, readerName: string) {
     const snap = await tx.get(ref);
     if (!snap.exists()) return;
     const d = snap.data() as any;
-    // only the same reader can cancel (soft)
     if (d.status === "reading" && d.readerName === readerName) {
       tx.set(ref, {
         status: "available",

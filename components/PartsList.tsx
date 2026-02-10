@@ -23,6 +23,12 @@ function subText(state?: PartState, blocked?: boolean) {
   return `נקרא: ${state.readerName ?? "מישהו"}`;
 }
 
+
+function sameReader(a?: string | null, b?: string | null) {
+  if (!a || !b) return false;
+  return a.trim().toLocaleLowerCase() === b.trim().toLocaleLowerCase();
+}
+
 function isUnlocked(stateMap: Record<string, PartState>, index: number) {
   if (index === 0) return true;
   const prev = stateMap[PARTS[index - 1].id];
@@ -31,8 +37,10 @@ function isUnlocked(stateMap: Record<string, PartState>, index: number) {
 
 export function PartsList({
   stateMap,
+  currentUserName,
 }: {
   stateMap: Record<string, PartState>;
+  currentUserName?: string | null;
 }) {
   return (
     <div className="mt-4 rounded-2xl bg-neutral-900 p-3 shadow">
@@ -43,7 +51,11 @@ export function PartsList({
           {PARTS.map((p, index) => {
             const st = stateMap[p.id];
             const unlocked = isUnlocked(stateMap, index);
-            const selectable = unlocked && (!st || st.status === "available");
+            const selectable = unlocked && (
+              !st ||
+              st.status === "available" ||
+              (st.status === "reading" && sameReader(st.readerName, currentUserName))
+            );
 
             const card = (
               <div
